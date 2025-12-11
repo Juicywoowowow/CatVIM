@@ -292,6 +292,11 @@ function State:handle_event(event)
             return
         end
         
+        -- Autocomplete click
+        if self.autocomplete and self.autocomplete:handle_click(event.x, event.y, event.action, self) then
+            return
+        end
+        
         -- Explorer click
         if self.explorer:handle_click(event.x, event.y, event.action) then
             return

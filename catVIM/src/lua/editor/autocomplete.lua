@@ -143,6 +143,14 @@ function M:render(state)
         render_y = screen_y - h  -- Flip up
     end
     
+    -- Store render bounds for click detection
+    self.rect = {
+        x = screen_x,
+        y = render_y,
+        w = max_width,
+        h = h
+    }
+    
     for i = 1, h do
         local idx = i -- scroll offset logic later if needed
         if idx <= #self.candidates then
@@ -156,6 +164,35 @@ function M:render(state)
             catvim.render.string(screen_x, render_y + i - 1, text, row_style)
         end
     end
+end
+
+function M:handle_click(x, y, action, state)
+    if not self.visible or not self.rect then return false end
+    
+    -- Check bounds
+    if x >= self.rect.x and x < self.rect.x + self.rect.w and
+       y >= self.rect.y and y < self.rect.y + self.rect.h then
+        
+        -- Calculate index relative to scroll (though we don't scroll yet)
+        local rel_y = y - self.rect.y
+        local idx = rel_y + 1
+        
+        if idx >= 1 and idx <= #self.candidates then
+            self.selection = idx
+            if action == "press" then
+                -- Just select on press
+                return true
+            elseif action == "release" then
+                 -- Accept on release (or double click logic if needed, but release is fine)
+                 -- Actually, standard behavior is usually click selects. Let's accept on click.
+                 self:accept(state)
+                 return true
+            end
+        end
+        return true
+    end
+    
+    return false
 end
 
 return M
