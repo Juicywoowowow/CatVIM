@@ -135,6 +135,19 @@ int LuaBindings::lua_term_read(lua_State* L) {
     auto& term = instance()->terminal();
     auto& parser = instance()->input();
     
+    // Optional timeout argument (default 5ms for responsive feel)
+    int timeout_ms = 5;
+    if (lua_gettop(L) >= 1) {
+        timeout_ms = luaL_optinteger(L, 1, 5);
+    }
+    
+    // Wait for input with poll
+    if (!term.poll_input(timeout_ms)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    
+    // Read all available bytes
     std::string buf;
     int c;
     while ((c = term.read_byte()) != -1) {

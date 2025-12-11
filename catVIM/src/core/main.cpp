@@ -74,10 +74,9 @@ int main(int argc, char* argv[]) {
     // Call init()
     app.call_function("init");
     
-    // Main loop
+    // Main loop - poll() in term.read() handles timing
     while (!catvim_should_quit()) {
         app.call_function("update");
-        usleep(16000);  // ~60fps
     }
     
     // Cleanup is handled by LuaBindings destructor
