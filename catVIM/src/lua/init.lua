@@ -266,7 +266,7 @@ function State:handle_event(event)
         end
         
         -- Explorer click
-        if self.explorer:handle_click(event.x, event.y) then
+        if self.explorer:handle_click(event.x, event.y, event.action) then
             return
         end
         

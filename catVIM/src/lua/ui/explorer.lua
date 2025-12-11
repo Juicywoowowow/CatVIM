@@ -103,8 +103,10 @@ function Explorer:move_selection(delta)
     end
 end
 
-function Explorer:handle_click(x, y)
+function Explorer:handle_click(x, y, action)
     if not self.visible then return false end
+    -- Only handle press, not release (prevents double-toggle)
+    if action ~= "press" then return false end
     if x < self.x or x >= self.x + self.width then return false end
     if y < self.y + 1 or y >= self.y + self.height - 1 then return false end
     
