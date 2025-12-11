@@ -75,6 +75,10 @@ M.styles = {
     error = { fg = M.colors.error, bold = true },
     warning = { fg = M.colors.warning },
     info = { fg = M.colors.info },
+    
+    -- Popup / Autocomplete
+    popup = { fg = M.colors.fg, bg = M.colors.bg_light },
+    popup_selected = { fg = M.colors.bg, bg = M.colors.blue, bold = true },
 }
 
 return M

@@ -339,7 +339,7 @@ function Insert:on_enter()
 end
 
 function Insert:on_exit()
-    -- Nothing to do
+    -- Autocomplete is hidden in handle() before switch
 end
 
 function Insert:save_for_undo(state)
@@ -355,11 +355,40 @@ function Insert:handle(event, state)
     local key = event.key
     local char = event.char
     local ctrl = event.ctrl
+    local ac = state.autocomplete
+    
+    -- Autocomplete navigation
+    if ac and ac.visible then
+        if key == 258 then -- Down
+            ac:cycle(1)
+            return true
+        elseif key == 259 then -- Up
+            ac:cycle(-1)
+            return true
+        end
+    end
     
     -- Escape to normal mode
     if key == KEY.ESCAPE or (ctrl and (key == 3 or char == "c")) then
+        if ac then ac:hide() end
         state.cursor:move(-1, 0)
         M.switch("normal")
+        return true
+    end
+    
+    -- Tab (Indent or Autocomplete Accept)
+    if key == KEY.TAB then
+        if ac and ac.visible then
+            self:save_for_undo(state)
+            ac:accept(state)
+            return true
+        end
+        
+        self:save_for_undo(state)
+        for _ = 1, 4 do
+            state.buffer:insert_char(state.cursor.line, state.cursor.col, " ")
+            state.cursor:move(1, 0)
+        end
         return true
     end
     
@@ -374,38 +403,52 @@ function Insert:handle(event, state)
                 state.cursor:move(-1, 0)
             end
         end
+        if ac then ac:trigger(state) end
         return true
     end
     
     -- Enter
     if key == KEY.ENTER then
+        if ac then ac:hide() end
         self:save_for_undo(state)
         state.buffer:split_line(state.cursor.line, state.cursor.col)
         state.cursor:move_to(state.cursor.line + 1, 1)
         return true
     end
     
-    -- Tab
-    if key == KEY.TAB then
-        self:save_for_undo(state)
-        for _ = 1, 4 do
-            state.buffer:insert_char(state.cursor.line, state.cursor.col, " ")
-            state.cursor:move(1, 0)
-        end
-        return true
+    -- Arrows in insert mode (hide AC on side movement)
+    if key == 260 then 
+        if ac then ac:hide() end
+        state.cursor:move(-1, 0) 
+        return true 
     end
-    
-    -- Arrows in insert mode
-    if key == 260 then state.cursor:move(-1, 0) return true end
-    if key == 261 then state.cursor:move(1, 0) return true end
-    if key == 258 then state.cursor:move(0, 1) return true end
-    if key == 259 then state.cursor:move(0, -1) return true end
+    if key == 261 then 
+        if ac then ac:hide() end
+        state.cursor:move(1, 0) 
+        return true 
+    end
+    if key == 258 then 
+        state.cursor:move(0, 1) 
+        if ac then ac:hide() end
+        return true 
+    end
+    if key == 259 then 
+        state.cursor:move(0, -1) 
+        if ac then ac:hide() end
+        return true 
+    end
     
     -- Printable characters
     if char and #char == 1 and key >= 32 and key < 127 then
         self:save_for_undo(state)
         state.buffer:insert_char(state.cursor.line, state.cursor.col, char)
         state.cursor:move(1, 0)
+        
+        if ac and char:match("[%w_]") then
+            ac:trigger(state)
+        else
+            if ac then ac:hide() end
+        end
         return true
     end
     

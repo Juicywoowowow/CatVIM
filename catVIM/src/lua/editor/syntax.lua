@@ -16,7 +16,7 @@ M.styles = {
     register = { fg = colors.colors.red },
     label = { fg = colors.colors.yellow },
     instruction = { fg = colors.colors.purple },
-    constant = { fg = colors.colors.orange },
+    constant = { fg = colors.colors.orange }, 
 }
 
 -- Language definitions

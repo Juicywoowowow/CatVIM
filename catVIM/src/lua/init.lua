@@ -9,6 +9,7 @@ local Button = require("ui.button")
 local StatusLine = require("ui.statusline")
 local Explorer = require("ui.explorer")
 local Cmdline = require("ui.cmdline")
+local Autocomplete = require("editor.autocomplete")
 
 -- Global editor state
 local State = {
@@ -59,6 +60,7 @@ function State:init()
     })
     
     self.cmdline = Cmdline:new()
+    self.autocomplete = Autocomplete:new()
     
     -- Set mode change callback
     Modes.on_change = function(new_mode, old_mode)
@@ -266,6 +268,11 @@ function State:render()
     elseif Modes.current == "search" then
         self.cmdline:set_input(Modes.handlers.search.input)
         self.cmdline:render()
+    end
+    
+    -- Render autocomplete popup (on top)
+    if self.autocomplete then
+        self.autocomplete:render(self)
     end
     
     catvim.render.flush()
