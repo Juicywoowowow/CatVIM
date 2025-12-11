@@ -13,6 +13,12 @@ M.search = {
     direction = 1  -- 1 = forward, -1 = backward
 }
 
+-- Clipboard for yank/paste
+M.clipboard = {
+    text = {},      -- Lines of text
+    is_line = true  -- true = whole line(s), false = partial
+}
+
 -- Key constants
 local KEY = {
     ESCAPE = 27,
@@ -186,16 +192,83 @@ function Normal:handle(event, state)
     elseif char == "d" then
         self.pending = "d"
         return true
+    elseif char == "y" then
+        self.pending = "y"
+        return true
     end
     
+    -- dd - delete line (and yank it)
     if self.pending == "d" then
         self.pending = nil
         if char == "d" then
-            state.buffer:save_state()  -- Save for undo
+            state.buffer:save_state()
+            -- Yank line before deleting
+            M.clipboard.text = { state.buffer:get_line(state.cursor.line) }
+            M.clipboard.is_line = true
             state.buffer:delete_line(state.cursor.line)
             state.cursor:clamp()
+            state:show_message("1 line deleted", "info")
             return true
         end
+    end
+    
+    -- yy - yank line
+    if self.pending == "y" then
+        self.pending = nil
+        if char == "y" then
+            M.clipboard.text = { state.buffer:get_line(state.cursor.line) }
+            M.clipboard.is_line = true
+            state:show_message("1 line yanked", "info")
+            return true
+        end
+    end
+    
+    -- p - paste after
+    if char == "p" then
+        if #M.clipboard.text == 0 then
+            state:show_message("Nothing to paste", "warning")
+            return true
+        end
+        state.buffer:save_state()
+        if M.clipboard.is_line then
+            -- Paste line(s) below current line
+            for i, line in ipairs(M.clipboard.text) do
+                state.buffer:insert_line(state.cursor.line + i, line)
+            end
+            state.cursor:move(0, 1)
+            state:show_message(#M.clipboard.text .. " line(s) pasted", "info")
+        else
+            -- Paste text after cursor
+            local line = state.buffer:get_line(state.cursor.line)
+            local col = state.cursor.col
+            local new_line = line:sub(1, col) .. M.clipboard.text[1] .. line:sub(col + 1)
+            state.buffer:set_line(state.cursor.line, new_line)
+            state.cursor:move(#M.clipboard.text[1], 0)
+        end
+        return true
+    end
+    
+    -- P - paste before
+    if char == "P" then
+        if #M.clipboard.text == 0 then
+            state:show_message("Nothing to paste", "warning")
+            return true
+        end
+        state.buffer:save_state()
+        if M.clipboard.is_line then
+            -- Paste line(s) above current line
+            for i, line in ipairs(M.clipboard.text) do
+                state.buffer:insert_line(state.cursor.line + i - 1, line)
+            end
+            state:show_message(#M.clipboard.text .. " line(s) pasted", "info")
+        else
+            -- Paste text before cursor
+            local line = state.buffer:get_line(state.cursor.line)
+            local col = state.cursor.col
+            local new_line = line:sub(1, col - 1) .. M.clipboard.text[1] .. line:sub(col)
+            state.buffer:set_line(state.cursor.line, new_line)
+        end
+        return true
     end
     
     -- Undo/Redo

@@ -2,6 +2,7 @@
 local Buffer = require("editor.buffer")
 local Cursor = require("editor.cursor")
 local Modes = require("editor.modes")
+local Syntax = require("editor.syntax")
 local colors = require("ui.colors")
 local icons = require("ui.icons")
 local Button = require("ui.button")
@@ -173,21 +174,40 @@ function State:render()
         -- Line content
         if line_num <= self.buffer:line_count() then
             local line = self.buffer:get_line(line_num)
-            local style = colors.styles.normal
+            local base_style = colors.styles.normal
             
-            -- Highlight cursor line
+            -- Highlight cursor line background
             if line_num == self.cursor.line then
-                style = colors.styles.cursor_line
+                base_style = colors.styles.cursor_line
             end
             
-            -- Render line text
+            -- Get syntax highlights for this line
+            local highlights = Syntax.highlight_line(line, self.buffer.filetype)
+            
+            -- Render line character by character with syntax highlighting
             local display_line = line:sub(1, editor_w)
-            catvim.render.string(editor_x, y, display_line, style)
+            for col = 1, #display_line do
+                local char = display_line:sub(col, col)
+                local char_style = Syntax.get_style(highlights, col)
+                
+                if char_style then
+                    -- Merge syntax style with base style (keep bg from cursor line)
+                    local merged = {
+                        fg = char_style.fg or base_style.fg,
+                        bg = base_style.bg,
+                        bold = char_style.bold,
+                        italic = char_style.italic
+                    }
+                    catvim.render.set(editor_x + col - 1, y, char, merged)
+                else
+                    catvim.render.set(editor_x + col - 1, y, char, base_style)
+                end
+            end
             
             -- Fill rest of line
             local fill = editor_w - #display_line
             if fill > 0 then
-                catvim.render.string(editor_x + #display_line, y, string.rep(" ", fill), style)
+                catvim.render.string(editor_x + #display_line, y, string.rep(" ", fill), base_style)
             end
             
             -- Render cursor
