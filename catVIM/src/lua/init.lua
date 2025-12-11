@@ -63,6 +63,9 @@ function State:init()
     Modes.on_change = function(new_mode, old_mode)
         if new_mode == "command" then
             self.cmdline:show(":")
+        elseif new_mode == "search" then
+            local prefix = Modes.search.direction == 1 and "/" or "?"
+            self.cmdline:show(prefix)
         else
             self.cmdline:hide()
         end
@@ -236,9 +239,12 @@ function State:render()
     })
     self.statusline:render()
     
-    -- Command line (if in command mode)
+    -- Command/Search line
     if Modes.current == "command" then
         self.cmdline:set_input(Modes.handlers.command.input)
+        self.cmdline:render()
+    elseif Modes.current == "search" then
+        self.cmdline:set_input(Modes.handlers.search.input)
         self.cmdline:render()
     end
     

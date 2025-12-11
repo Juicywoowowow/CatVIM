@@ -1,4 +1,4 @@
--- catVIM Buffer - Text storage with gap buffer implementation
+-- catVIM Buffer - Text storage with undo/redo support
 local Buffer = {}
 Buffer.__index = Buffer
 
@@ -11,7 +11,59 @@ function Buffer:new(opts)
     self.readonly = opts.readonly or false
     self.filetype = opts.filetype or "text"
     self.name = opts.name or "[No Name]"
+    -- Undo/redo history
+    self.undo_stack = {}
+    self.redo_stack = {}
+    self.max_history = 100
     return self
+end
+
+-- Save state for undo
+function Buffer:save_state()
+    -- Deep copy lines
+    local snapshot = {}
+    for i, line in ipairs(self.lines) do
+        snapshot[i] = line
+    end
+    table.insert(self.undo_stack, snapshot)
+    -- Limit history size
+    if #self.undo_stack > self.max_history then
+        table.remove(self.undo_stack, 1)
+    end
+    -- Clear redo stack on new edit
+    self.redo_stack = {}
+end
+
+function Buffer:undo()
+    if #self.undo_stack == 0 then
+        return false
+    end
+    -- Save current state to redo
+    local current = {}
+    for i, line in ipairs(self.lines) do
+        current[i] = line
+    end
+    table.insert(self.redo_stack, current)
+    -- Restore previous state
+    self.lines = table.remove(self.undo_stack)
+    self.modified = #self.undo_stack > 0
+    return true
+end
+
+function Buffer:redo()
+    if #self.redo_stack == 0 then
+        return false
+    end
+    -- Save current to undo
+    local current = {}
+    for i, line in ipairs(self.lines) do
+        current[i] = line
+    end
+    table.insert(self.undo_stack, current)
+    -- Restore redo state
+    self.lines = table.remove(self.redo_stack)
+    self.modified = true
+    return true
 end
 
 function Buffer:load(filepath)

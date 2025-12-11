@@ -5,6 +5,14 @@ M.current = "normal"
 M.handlers = {}
 M.on_change = nil  -- Callback when mode changes
 
+-- Search state
+M.search = {
+    pattern = "",
+    matches = {},
+    current_match = 0,
+    direction = 1  -- 1 = forward, -1 = backward
+}
+
 -- Key constants
 local KEY = {
     ESCAPE = 27,
@@ -15,6 +23,7 @@ local KEY = {
     CTRL_S = 19,
     CTRL_Q = 17,
     CTRL_W = 23,
+    CTRL_R = 18,
 }
 
 function M.register(name, handler)
@@ -166,6 +175,7 @@ function Normal:handle(event, state)
     
     -- Editing
     if char == "x" then
+        state.buffer:save_state()  -- Save for undo
         local line = state.cursor.line
         local col = state.cursor.col
         local text = state.buffer:get_line(line)
@@ -181,10 +191,52 @@ function Normal:handle(event, state)
     if self.pending == "d" then
         self.pending = nil
         if char == "d" then
+            state.buffer:save_state()  -- Save for undo
             state.buffer:delete_line(state.cursor.line)
             state.cursor:clamp()
             return true
         end
+    end
+    
+    -- Undo/Redo
+    if char == "u" then
+        if state.buffer:undo() then
+            state.cursor:clamp()
+            state:show_message("Undo", "info")
+        else
+            state:show_message("Already at oldest change", "warning")
+        end
+        return true
+    end
+    
+    if ctrl and (key == KEY.CTRL_R or char == "r") then
+        if state.buffer:redo() then
+            state.cursor:clamp()
+            state:show_message("Redo", "info")
+        else
+            state:show_message("Already at newest change", "warning")
+        end
+        return true
+    end
+    
+    -- Search
+    if char == "/" then
+        M.search.direction = 1
+        M.switch("search")
+        return true
+    elseif char == "?" then
+        M.search.direction = -1
+        M.switch("search")
+        return true
+    end
+    
+    -- Next/prev search match
+    if char == "n" then
+        M.find_next(state, M.search.direction)
+        return true
+    elseif char == "N" then
+        M.find_next(state, -M.search.direction)
+        return true
     end
     
     -- Save/Quit shortcuts (Ctrl)
@@ -206,11 +258,23 @@ local Insert = {}
 Insert.__index = Insert
 
 function Insert:new()
-    return setmetatable({}, Insert)
+    return setmetatable({has_edited = false}, Insert)
 end
 
-function Insert:on_enter() end
-function Insert:on_exit() end
+function Insert:on_enter()
+    self.has_edited = false
+end
+
+function Insert:on_exit()
+    -- Nothing to do
+end
+
+function Insert:save_for_undo(state)
+    if not self.has_edited then
+        state.buffer:save_state()
+        self.has_edited = true
+    end
+end
 
 function Insert:handle(event, state)
     if event.type ~= "key" then return false end
@@ -228,6 +292,7 @@ function Insert:handle(event, state)
     
     -- Backspace
     if key == KEY.BACKSPACE then
+        self:save_for_undo(state)
         local ok, new_col = state.buffer:delete_char(state.cursor.line, state.cursor.col)
         if ok then
             if new_col then
@@ -241,6 +306,7 @@ function Insert:handle(event, state)
     
     -- Enter
     if key == KEY.ENTER then
+        self:save_for_undo(state)
         state.buffer:split_line(state.cursor.line, state.cursor.col)
         state.cursor:move_to(state.cursor.line + 1, 1)
         return true
@@ -248,6 +314,7 @@ function Insert:handle(event, state)
     
     -- Tab
     if key == KEY.TAB then
+        self:save_for_undo(state)
         for _ = 1, 4 do
             state.buffer:insert_char(state.cursor.line, state.cursor.col, " ")
             state.cursor:move(1, 0)
@@ -263,6 +330,7 @@ function Insert:handle(event, state)
     
     -- Printable characters
     if char and #char == 1 and key >= 32 and key < 127 then
+        self:save_for_undo(state)
         state.buffer:insert_char(state.cursor.line, state.cursor.col, char)
         state.cursor:move(1, 0)
         return true
@@ -382,10 +450,139 @@ function Command:execute(state)
     end
 end
 
+-- Search mode handler
+local Search = {}
+Search.__index = Search
+
+function Search:new()
+    return setmetatable({input = ""}, Search)
+end
+
+function Search:on_enter()
+    self.input = ""
+end
+
+function Search:on_exit()
+    -- Keep pattern for n/N navigation
+end
+
+function Search:handle(event, state)
+    if event.type ~= "key" then return false end
+    
+    local key = event.key
+    local char = event.char
+    
+    if key == KEY.ESCAPE then
+        M.search.pattern = ""
+        M.switch("normal")
+        return true
+    end
+    
+    if key == KEY.ENTER then
+        M.search.pattern = self.input
+        M.do_search(state)
+        M.switch("normal")
+        return true
+    end
+    
+    if key == KEY.BACKSPACE then
+        if #self.input > 0 then
+            self.input = self.input:sub(1, -2)
+        else
+            M.switch("normal")
+        end
+        return true
+    end
+    
+    if char and #char == 1 and key >= 32 and key < 127 then
+        self.input = self.input .. char
+        return true
+    end
+    
+    return false
+end
+
+-- Search functions
+function M.do_search(state)
+    local pattern = M.search.pattern
+    if pattern == "" then return end
+    
+    M.search.matches = {}
+    
+    -- Find all matches
+    for line_num = 1, state.buffer:line_count() do
+        local line = state.buffer:get_line(line_num)
+        local start = 1
+        while true do
+            local s, e = line:find(pattern, start, true)  -- Plain text search
+            if s then
+                table.insert(M.search.matches, {line = line_num, col = s, end_col = e})
+                start = e + 1
+            else
+                break
+            end
+        end
+    end
+    
+    if #M.search.matches == 0 then
+        state:show_message("Pattern not found: " .. pattern, "warning")
+        return
+    end
+    
+    -- Find first match after cursor
+    local cursor_line = state.cursor.line
+    local cursor_col = state.cursor.col
+    
+    for i, match in ipairs(M.search.matches) do
+        if match.line > cursor_line or (match.line == cursor_line and match.col > cursor_col) then
+            M.search.current_match = i
+            state.cursor:move_to(match.line, match.col)
+            state:show_message("/" .. pattern .. " [" .. i .. "/" .. #M.search.matches .. "]", "info")
+            return
+        end
+    end
+    
+    -- Wrap to first match
+    M.search.current_match = 1
+    local match = M.search.matches[1]
+    state.cursor:move_to(match.line, match.col)
+    state:show_message("/" .. pattern .. " [1/" .. #M.search.matches .. "] (wrapped)", "info")
+end
+
+function M.find_next(state, direction)
+    if M.search.pattern == "" or #M.search.matches == 0 then
+        if M.search.pattern == "" then
+            state:show_message("No search pattern", "warning")
+        else
+            state:show_message("Pattern not found: " .. M.search.pattern, "warning")
+        end
+        return
+    end
+    
+    local next_idx = M.search.current_match + direction
+    if next_idx > #M.search.matches then
+        next_idx = 1
+    elseif next_idx < 1 then
+        next_idx = #M.search.matches
+    end
+    
+    M.search.current_match = next_idx
+    local match = M.search.matches[next_idx]
+    state.cursor:move_to(match.line, match.col)
+    
+    local wrap_msg = ""
+    if (direction > 0 and next_idx == 1) or (direction < 0 and next_idx == #M.search.matches) then
+        wrap_msg = " (wrapped)"
+    end
+    state:show_message("/" .. M.search.pattern .. " [" .. next_idx .. "/" .. #M.search.matches .. "]" .. wrap_msg, "info")
+end
+
 -- Register default modes
 M.register("normal", Normal:new())
 M.register("insert", Insert:new())
 M.register("visual", Visual:new())
 M.register("command", Command:new())
+M.register("search", Search:new())
 
 return M
+
