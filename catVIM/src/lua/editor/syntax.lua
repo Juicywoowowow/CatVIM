@@ -238,22 +238,21 @@ function M.highlight_line(line, filetype)
     end
     
     -- Highlight keywords, types, instructions, registers
-    for word, ws, we in line:gmatch("()([%w_]+)()") do
-        ws = word  -- Start position
-        we = word + #ws - 1  -- End position
+    for word_start, word in line:gmatch("()([%w_]+)") do
+        local word_end = word_start + #word - 1
         
         -- Skip if already covered (e.g., in a string or comment)
-        if not covered[word] then
-            local lower_word = ws:lower()
+        if not covered[word_start] then
+            local lower_word = word:lower()
             
-            if lang.keyword_set and lang.keyword_set[ws] then
-                mark(word, word + #ws - 1, "keyword")
-            elseif lang.type_set and lang.type_set[ws] then
-                mark(word, word + #ws - 1, "type")
+            if lang.keyword_set and lang.keyword_set[word] then
+                mark(word_start, word_end, "keyword")
+            elseif lang.type_set and lang.type_set[word] then
+                mark(word_start, word_end, "type")
             elseif lang.instr_set and lang.instr_set[lower_word] then
-                mark(word, word + #ws - 1, "instruction")
+                mark(word_start, word_end, "instruction")
             elseif lang.reg_set and lang.reg_set[lower_word] then
-                mark(word, word + #ws - 1, "register")
+                mark(word_start, word_end, "register")
             end
         end
     end
