@@ -9,7 +9,7 @@ local Button = require("ui.button")
 local StatusLine = require("ui.statusline")
 local Explorer = require("ui.explorer")
 local Cmdline = require("ui.cmdline")
-local Autocomplete = require("editor.autocomplete")
+local Autocomplete = require("editor.autocomplete") 
 
 -- Global editor state
 local State = {

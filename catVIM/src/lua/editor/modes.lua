@@ -556,8 +556,15 @@ function Command:execute(state)
     elseif cmd == "wq" or cmd == "x" then
         state:save()
         catvim.quit()
-    elseif cmd:match("^e%s+") then
+    elseif cmd == "e" or cmd == "edit" then
+        if state.buffer.filepath then
+            state:open_file(state.buffer.filepath)
+        else
+            state:show_message("No file to reload", "warning")
+        end
+    elseif cmd:match("^e%s+") or cmd:match("^edit%s+") then
         local path = cmd:match("^e%s+(.+)$")
+        if not path then path = cmd:match("^edit%s+(.+)$") end
         state:open_file(path)
     elseif cmd:match("^%d+$") then
         state.cursor:goto_line(tonumber(cmd))
