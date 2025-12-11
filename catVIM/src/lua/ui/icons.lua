@@ -1,16 +1,16 @@
--- catVIM icons - ASCII-based, minimal and clean
+-- catVIM icons - Pure ASCII, no Unicode
 return {
     -- File types
-    file        = "○",
-    file_text   = "≡",
-    file_code   = "◇",
-    folder      = "▸",
-    folder_open = "▾",
+    file        = "-",
+    file_text   = "=",
+    file_code   = "*",
+    folder      = ">",
+    folder_open = "v",
     
     -- Status indicators
-    modified    = "●",
-    readonly    = "◌",
-    saved       = "○",
+    modified    = "*",
+    readonly    = "o",
+    saved       = "-",
     
     -- Git status
     git_add     = "+",
@@ -32,7 +32,7 @@ return {
     check       = "*",
     dot         = ".",
     
-    -- Box drawing
+    -- Box drawing (ASCII)
     line_v      = "|",
     line_h      = "-",
     corner_tl   = "+",
@@ -56,5 +56,5 @@ return {
     btn_right   = "]",
     btn_close   = "x",
     btn_min     = "_",
-    btn_max     = "[]",
+    btn_max     = "#",
 }

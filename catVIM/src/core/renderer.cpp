@@ -138,22 +138,22 @@ std::string Renderer::flush() {
 void Renderer::draw_box(int x, int y, int w, int h, const Style& style) {
     if (w < 2 || h < 2) return;
     
-    // Corners
-    set_cell(x, y, U'┌', style);
-    set_cell(x + w - 1, y, U'┐', style);
-    set_cell(x, y + h - 1, U'└', style);
-    set_cell(x + w - 1, y + h - 1, U'┘', style);
+    // Corners (ASCII)
+    set_cell(x, y, '+', style);
+    set_cell(x + w - 1, y, '+', style);
+    set_cell(x, y + h - 1, '+', style);
+    set_cell(x + w - 1, y + h - 1, '+', style);
     
     // Horizontal lines
     for (int i = 1; i < w - 1; i++) {
-        set_cell(x + i, y, U'─', style);
-        set_cell(x + i, y + h - 1, U'─', style);
+        set_cell(x + i, y, '-', style);
+        set_cell(x + i, y + h - 1, '-', style);
     }
     
     // Vertical lines
     for (int i = 1; i < h - 1; i++) {
-        set_cell(x, y + i, U'│', style);
-        set_cell(x + w - 1, y + i, U'│', style);
+        set_cell(x, y + i, '|', style);
+        set_cell(x + w - 1, y + i, '|', style);
     }
 }
 
